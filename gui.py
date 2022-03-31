@@ -19,11 +19,21 @@ import pix2tex
 QApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling, True)
 QApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps, True)
 
+def resize_image(img, dpr):
+    """
+    Resize the image if the device pixel ratio is greater than 1.
+    """
+    if dpr > 1:
+        w, h = img.size
+        return img.resize((int(w/dpr), int(h/dpr)))
+    else:
+        return img
 
 class App(QMainWindow):
-    def __init__(self, args=None):
+    def __init__(self, args=None, dpr=(1,)):
         super().__init__()
         self.args = args
+        self.dpr = dpr
         self.initModel()
         self.initUI()
         self.snipWidget = SnipWidget(self)
@@ -101,7 +111,7 @@ class App(QMainWindow):
             with tempfile.NamedTemporaryFile() as tmp:
                 os.system(f"gnome-screenshot --area --file={tmp.name}")
                 # Use `tmp.name` instead of `tmp.file` due to compatability issues between Pillow and tempfile
-                self.returnSnip(Image.open(tmp.name))
+                self.returnSnip(resize_image(Image.open(tmp.name), self.dpr[0]))
         except:
             print(f"Failed to load saved screenshot! Did you cancel the screenshot?")
             print("If you don't have gnome-screenshot installed, please install it.")
@@ -269,7 +279,7 @@ class SnipWidget(QMainWindow):
         self.close()
         self.begin = QtCore.QPoint()
         self.end = QtCore.QPoint()
-        self.parent.returnSnip(img)
+        self.parent.returnSnip(resize_image(img, self.parent.dpr[0]))
 
 
 if __name__ == '__main__':
@@ -285,6 +295,8 @@ if __name__ == '__main__':
     if latexocr_path != '':
         sys.path.insert(0, latexocr_path)
         os.chdir(latexocr_path)
+    os.environ['QTWEBENGINE_DISABLE_SANDBOX'] = ''
     app = QApplication(sys.argv)
-    ex = App(arguments)
+    dpr = [screen.devicePixelRatio() for screen in app.screens()]
+    ex = App(arguments, dpr)
     sys.exit(app.exec_())
